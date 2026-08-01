@@ -1,0 +1,74 @@
+# .NET build output
+bin/
+obj/
+out/
+artifacts/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# JetBrains
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Azure Functions local configuration
+local.settings.json
+local.settings.*.json
+
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+*.secrets.json
+
+# Test output
+TestResults/
+coverage/
+coverage-results/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet packages and generated artifacts
+*.nupkg
+*.snupkg
+packages/
+
+# Logs
+logs/
+*.log
+
+# Azure Storage emulator data
+.azurite/
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+AzuriteConfig
+AzuriteError
+AzuriteDebug.log
+
+# Docker runtime data
+docker-data/
+.infrastructure-data/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp

@@ -1,2 +1,5 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OrderFlow.Domain/OrderFlow.Domain.csproj" />
+  </Folder>
 </Solution>
