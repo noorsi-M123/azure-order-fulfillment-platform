@@ -5,6 +5,9 @@
     <Project Path="src/OrderFlow.Domain/OrderFlow.Domain.csproj" />
     <Project Path="src/OrderFlow.Infrastructure/OrderFlow.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/OrderFlow.Functions.OrderIntake/">
+    <Project Path="src/OrderFlow.Functions.OrderIntake/OrderFlow_Functions_OrderIntake.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/OrderFlow.Application.UnitTests/OrderFlow.Application.UnitTests.csproj" />
     <Project Path="tests/OrderFlow.ArchitectureTests/OrderFlow.ArchitectureTests.csproj" />
