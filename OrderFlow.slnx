@@ -3,5 +3,6 @@
     <Project Path="src/OrderFlow.Application/OrderFlow.Application.csproj" />
     <Project Path="src/OrderFlow.Contracts/OrderFlow.Contracts.csproj" />
     <Project Path="src/OrderFlow.Domain/OrderFlow.Domain.csproj" />
+    <Project Path="src/OrderFlow.Infrastructure/OrderFlow.Infrastructure.csproj" />
   </Folder>
 </Solution>
