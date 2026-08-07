@@ -1,9 +1,12 @@
+using Azure.Monitor.OpenTelemetry.Exporter;
+using FluentValidation;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
 using Microsoft.Extensions.DependencyInjection;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry;
+using OrderFlow.Contracts.Orders;
+using OrderFlow.Functions.OrderIntake.Validators;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -23,5 +26,7 @@ if (!string.IsNullOrWhiteSpace(applicationInsightsConnectionString))
         options.ConnectionString = applicationInsightsConnectionString;
     });
 }
+
+builder.Services.AddScoped<IValidator<SubmitOrderRequest>, SubmitOrderRequestValidator>();
 
 builder.Build().Run();
