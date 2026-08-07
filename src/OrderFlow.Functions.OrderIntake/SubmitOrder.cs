@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using OrderFlow.Application.Orders.SubmitOrder;
 using OrderFlow.Contracts.Orders;
 
 namespace OrderFlow.Functions.OrderIntake;
@@ -11,13 +12,16 @@ public sealed class SubmitOrder
 {
     private readonly ILogger<SubmitOrder> _logger;
     private readonly IValidator<SubmitOrderRequest> _validator;
+    private readonly ISubmitOrderHandler _handler;
 
     public SubmitOrder(
         ILogger<SubmitOrder> logger,
-        IValidator<SubmitOrderRequest> validator)
+        IValidator<SubmitOrderRequest> validator,
+        ISubmitOrderHandler handler)
     {
         _logger = logger;
         _validator = validator;
+        _handler = handler;
     }
 
     [Function(nameof(SubmitOrder))]
@@ -38,7 +42,9 @@ public sealed class SubmitOrder
             });
         }
 
-        var validationResult = await _validator.ValidateAsync(order);
+        var validationResult = await _validator.ValidateAsync(
+            order,
+            request.HttpContext.RequestAborted);
 
         if (!validationResult.IsValid)
         {
@@ -58,8 +64,23 @@ public sealed class SubmitOrder
             });
         }
 
+        var command = new SubmitOrderCommand(
+            order.OrderId,
+            order.CustomerId,
+            order.Items
+                .Select(item => new SubmitOrderItemCommand(
+                    item.ProductId,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.Currency))
+                .ToArray());
+
+        await _handler.HandleAsync(
+            command,
+            request.HttpContext.RequestAborted);
+
         _logger.LogInformation(
-            "Order submission received. OrderId: {OrderId}, CustomerId: {CustomerId}, TraceIdentifier: {TraceIdentifier}",
+            "Order submission accepted. OrderId: {OrderId}, CustomerId: {CustomerId}, TraceIdentifier: {TraceIdentifier}",
             order.OrderId,
             order.CustomerId,
             request.HttpContext.TraceIdentifier);
