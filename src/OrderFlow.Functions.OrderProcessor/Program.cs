@@ -9,6 +9,10 @@ using OpenTelemetry;
 using OrderFlow.Application.Messaging;
 using OrderFlow.Application.Orders.ProcessOrderSubmitted;
 using OrderFlow.Infrastructure.Messaging;
+using OrderFlow.Application.Inventory;
+using OrderFlow.Application.Orders.Processing;
+using OrderFlow.Infrastructure.Inventory;
+using OrderFlow.Infrastructure.Orders.Processing;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -43,6 +47,13 @@ var processedMessagesTable =
 
 await processedMessagesTable.CreateIfNotExistsAsync();
 
+var orderProcessingResultsTable =
+    tableServiceClient.GetTableClient("OrderProcessingResults");
+
+await orderProcessingResultsTable.CreateIfNotExistsAsync();
+
+builder.Services.AddScoped<IInventoryReservationService,SimulatedInventoryReservationService>();
+builder.Services.AddScoped<IOrderProcessingResultStore,TableOrderProcessingResultStore>();
 builder.Services.AddSingleton(tableServiceClient);
 builder.Services.AddScoped<IProcessedMessageStore, TableProcessedMessageStore>();
 builder.Services.AddScoped<ProcessOrderSubmittedHandler>();
