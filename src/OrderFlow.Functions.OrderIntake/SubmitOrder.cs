@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using OrderFlow.Application.Observability;
 using OrderFlow.Application.Orders.SubmitOrder;
 using OrderFlow.Contracts.Orders;
 
@@ -10,6 +11,8 @@ namespace OrderFlow.Functions.OrderIntake;
 
 public sealed class SubmitOrder
 {
+    private const string CorrelationIdHeaderName = "X-Correlation-ID";
+
     private readonly ILogger<SubmitOrder> _logger;
     private readonly IValidator<SubmitOrderRequest> _validator;
     private readonly ISubmitOrderHandler _handler;
@@ -32,19 +35,60 @@ public sealed class SubmitOrder
             Route = "orders")]
         HttpRequest request)
     {
-        var order = await request.ReadFromJsonAsync<SubmitOrderRequest>();
+        var correlationId = GetCorrelationId(request);
+
+        using var activity =
+            OrderFlowActivitySource.Instance.StartActivity(
+                "SubmitOrder");
+
+        activity?.SetTag(
+            "orderflow.correlation_id",
+            correlationId);
+
+        activity?.SetTag(
+            "http.request.method",
+            request.Method);
+
+        using var requestLoggingScope = _logger.BeginScope(
+            new Dictionary<string, object>
+            {
+                ["CorrelationId"] = correlationId
+            });
+
+        var order =
+            await request.ReadFromJsonAsync<SubmitOrderRequest>();
 
         if (order is null)
         {
+            _logger.LogWarning(
+                "Order submission rejected because the request body is missing.");
+
             return new BadRequestObjectResult(new
             {
-                message = "Request body is required."
+                message = "Request body is required.",
+                correlationId
             });
         }
 
-        var validationResult = await _validator.ValidateAsync(
-            order,
-            request.HttpContext.RequestAborted);
+        activity?.SetTag(
+            "orderflow.order_id",
+            order.OrderId);
+
+        activity?.SetTag(
+            "orderflow.customer_id",
+            order.CustomerId);
+
+        using var orderLoggingScope = _logger.BeginScope(
+            new Dictionary<string, object>
+            {
+                ["OrderId"] = order.OrderId,
+                ["CustomerId"] = order.CustomerId
+            });
+
+        var validationResult =
+            await _validator.ValidateAsync(
+                order,
+                request.HttpContext.RequestAborted);
 
         if (!validationResult.IsValid)
         {
@@ -57,9 +101,13 @@ public sealed class SubmitOrder
                         .Distinct()
                         .ToArray());
 
+            _logger.LogWarning(
+                "Order submission rejected because request validation failed.");
+
             return new BadRequestObjectResult(new
             {
                 message = "Request validation failed.",
+                correlationId,
                 errors
             });
         }
@@ -73,24 +121,42 @@ public sealed class SubmitOrder
                     item.Quantity,
                     item.UnitPrice,
                     item.Currency))
-                .ToArray());
+                .ToArray(),
+            correlationId);
 
         await _handler.HandleAsync(
             command,
             request.HttpContext.RequestAborted);
 
         _logger.LogInformation(
-            "Order submission accepted. OrderId: {OrderId}, CustomerId: {CustomerId}, TraceIdentifier: {TraceIdentifier}",
-            order.OrderId,
-            order.CustomerId,
-            request.HttpContext.TraceIdentifier);
+            "Order submission accepted for processing.");
 
         return new AcceptedResult(
             location: null,
             value: new
             {
                 message = "Order submission accepted for processing.",
-                orderId = order.OrderId
+                orderId = order.OrderId,
+                correlationId
             });
+    }
+
+    private static string GetCorrelationId(
+        HttpRequest request)
+    {
+        if (request.Headers.TryGetValue(
+                CorrelationIdHeaderName,
+                out var correlationIdHeader))
+        {
+            var correlationId =
+                correlationIdHeader.ToString();
+
+            if (!string.IsNullOrWhiteSpace(correlationId))
+            {
+                return correlationId;
+            }
+        }
+
+        return request.HttpContext.TraceIdentifier;
     }
 }

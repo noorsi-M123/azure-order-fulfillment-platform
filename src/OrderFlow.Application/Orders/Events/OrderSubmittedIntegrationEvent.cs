@@ -4,4 +4,5 @@ public sealed record OrderSubmittedIntegrationEvent(
     string OrderId,
     string CustomerId,
     IReadOnlyCollection<OrderSubmittedItem> Items,
-    DateTimeOffset OccurredAtUtc);
+    DateTimeOffset OccurredAtUtc,
+    string CorrelationId);

@@ -13,6 +13,8 @@ using OrderFlow.Application.Inventory;
 using OrderFlow.Application.Orders.Processing;
 using OrderFlow.Infrastructure.Inventory;
 using OrderFlow.Infrastructure.Orders.Processing;
+using OrderFlow.Application.Observability;
+using OpenTelemetry.Trace;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -21,8 +23,13 @@ builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 var openTelemetryBuilder = builder.Services
     .AddOpenTelemetry()
-    .UseFunctionsWorkerDefaults();
-
+    .UseFunctionsWorkerDefaults()
+    .WithTracing(tracing =>
+    {
+        tracing.AddSource(OrderFlowActivitySource.Name);
+        tracing.AddConsoleExporter();
+    });
+    
 var applicationInsightsConnectionString =
     builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
 

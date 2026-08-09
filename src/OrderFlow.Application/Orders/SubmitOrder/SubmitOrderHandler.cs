@@ -29,7 +29,8 @@ public sealed class SubmitOrderHandler : ISubmitOrderHandler
                     item.UnitPrice,
                     item.Currency))
                 .ToArray(),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            command.CorrelationId);
 
         await _eventPublisher.PublishAsync(
             integrationEvent,

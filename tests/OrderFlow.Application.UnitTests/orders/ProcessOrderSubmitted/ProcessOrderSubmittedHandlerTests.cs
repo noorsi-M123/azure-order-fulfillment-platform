@@ -8,6 +8,11 @@ namespace OrderFlow.Application.UnitTests.Orders.ProcessOrderSubmitted;
 
 public sealed class ProcessOrderSubmittedHandlerTests
 {
+    private const string MessageId = "order-submitted:ORD-001";
+    private const string OrderId = "ORD-001";
+    private const string CustomerId = "CUST-001";
+    private const string CorrelationId = "corr-test-001";
+
     [Fact]
     public async Task HandleAsync_WhenMessageWasAlreadyProcessed_ReturnsAlreadyProcessed()
     {
@@ -24,11 +29,9 @@ public sealed class ProcessOrderSubmittedHandlerTests
             inventoryService,
             processingResultStore);
 
-        var integrationEvent = CreateEvent();
-
         var result = await sut.HandleAsync(
-            "order-submitted:ORD-001",
-            integrationEvent);
+            MessageId,
+            CreateEvent());
 
         Assert.Equal(
             ProcessOrderSubmittedResult.AlreadyProcessed,
@@ -60,11 +63,9 @@ public sealed class ProcessOrderSubmittedHandlerTests
             inventoryService,
             processingResultStore);
 
-        var integrationEvent = CreateEvent();
-
         var result = await sut.HandleAsync(
-            "order-submitted:ORD-001",
-            integrationEvent);
+            MessageId,
+            CreateEvent());
 
         Assert.Equal(
             ProcessOrderSubmittedResult.Processed,
@@ -74,19 +75,30 @@ public sealed class ProcessOrderSubmittedHandlerTests
         Assert.True(processingResultStore.SaveCalled);
 
         Assert.NotNull(processingResultStore.SavedResult);
+
+        Assert.Equal(
+            OrderId,
+            processingResultStore.SavedResult.OrderId);
+
         Assert.Equal(
             OrderProcessingStatus.Completed,
             processingResultStore.SavedResult.Status);
 
+        Assert.Null(
+            processingResultStore.SavedResult.FailureReason);
+
         Assert.True(processedMessageStore.MarkAsProcessedCalled);
+
         Assert.Equal(
-            "order-submitted:ORD-001",
+            MessageId,
             processedMessageStore.MarkedMessageId);
     }
 
     [Fact]
     public async Task HandleAsync_WhenInventoryReservationFails_PersistsFailedResultAndMarksMessageAsProcessed()
     {
+        const string failureReason = "Insufficient inventory.";
+
         var processedMessageStore = new FakeProcessedMessageStore
         {
             HasBeenProcessed = false
@@ -96,7 +108,7 @@ public sealed class ProcessOrderSubmittedHandlerTests
         {
             Result = new InventoryReservationResult(
                 Succeeded: false,
-                FailureReason: "Insufficient inventory.")
+                FailureReason: failureReason)
         };
 
         var processingResultStore = new FakeOrderProcessingResultStore();
@@ -107,31 +119,42 @@ public sealed class ProcessOrderSubmittedHandlerTests
             processingResultStore);
 
         var result = await sut.HandleAsync(
-            "order-submitted:ORD-001",
+            MessageId,
             CreateEvent());
 
         Assert.Equal(
             ProcessOrderSubmittedResult.Processed,
             result);
 
+        Assert.True(inventoryService.ReserveCalled);
+        Assert.True(processingResultStore.SaveCalled);
+
         Assert.NotNull(processingResultStore.SavedResult);
+
+        Assert.Equal(
+            OrderId,
+            processingResultStore.SavedResult.OrderId);
 
         Assert.Equal(
             OrderProcessingStatus.Failed,
             processingResultStore.SavedResult.Status);
 
         Assert.Equal(
-            "Insufficient inventory.",
+            failureReason,
             processingResultStore.SavedResult.FailureReason);
 
         Assert.True(processedMessageStore.MarkAsProcessedCalled);
+
+        Assert.Equal(
+            MessageId,
+            processedMessageStore.MarkedMessageId);
     }
 
     private static OrderSubmittedIntegrationEvent CreateEvent()
     {
         return new OrderSubmittedIntegrationEvent(
-            "ORD-001",
-            "CUST-001",
+            OrderId,
+            CustomerId,
             [
                 new OrderSubmittedItem(
                     "PROD-001",
@@ -139,7 +162,8 @@ public sealed class ProcessOrderSubmittedHandlerTests
                     10m,
                     "EUR")
             ],
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            CorrelationId);
     }
 
     private sealed class FakeProcessedMessageStore

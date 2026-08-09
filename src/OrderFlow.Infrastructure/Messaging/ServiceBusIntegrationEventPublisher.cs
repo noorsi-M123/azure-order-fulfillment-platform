@@ -36,10 +36,11 @@ public sealed class ServiceBusIntegrationEventPublisher
 
         if (integrationEvent is OrderSubmittedIntegrationEvent orderSubmitted)
         {
-            var messageId = $"order-submitted:{orderSubmitted.OrderId}";
+            message.MessageId =
+                $"order-submitted:{orderSubmitted.OrderId}";
 
-            message.MessageId = messageId;
-            message.CorrelationId = messageId;
+            message.CorrelationId =
+                orderSubmitted.CorrelationId;
         }
 
         await _sender.SendMessageAsync(
