@@ -1,0 +1,27 @@
+# OrderFlow DLQ Inspector
+
+A lightweight diagnostic tool for inspecting messages in the Azure Service Bus dead-letter queue used by OrderFlow.
+
+The tool uses `PeekMessagesAsync`, meaning messages are inspected without being removed from the DLQ.
+
+## Purpose
+
+The DLQ Inspector helps developers and operators diagnose messages that could not be processed successfully.
+
+It displays:
+
+- Message ID
+- Sequence number
+- Delivery count
+- Enqueued timestamp
+- Dead-letter reason
+- Dead-letter error description
+
+## Local usage
+
+Start the local Azure Service Bus emulator first.
+
+Run:
+
+```powershell
+dotnet run --project tools/OrderFlow.DlqInspector

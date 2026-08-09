@@ -1,5 +1,6 @@
 using Azure.Messaging.ServiceBus;
 using OrderFlow.Application.Messaging;
+using OrderFlow.Application.Orders.Events;
 
 namespace OrderFlow.Infrastructure.Messaging;
 
@@ -32,6 +33,14 @@ public sealed class ServiceBusIntegrationEventPublisher
             ContentType = "application/json",
             Subject = typeof(T).Name
         };
+
+        if (integrationEvent is OrderSubmittedIntegrationEvent orderSubmitted)
+        {
+            var messageId = $"order-submitted:{orderSubmitted.OrderId}";
+
+            message.MessageId = messageId;
+            message.CorrelationId = messageId;
+        }
 
         await _sender.SendMessageAsync(
             message,

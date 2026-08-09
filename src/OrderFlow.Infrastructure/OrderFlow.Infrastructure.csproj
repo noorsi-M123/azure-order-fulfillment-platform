@@ -3,5 +3,6 @@
     <ProjectReference Include="..\OrderFlow.Application\OrderFlow.Application.csproj" />
     <PackageReference Include="Azure.Messaging.ServiceBus" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Azure.Data.Tables" />
   </ItemGroup>
 </Project>
