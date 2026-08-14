@@ -15,5 +15,6 @@
     <Project Path="tests/OrderFlow.Application.UnitTests/OrderFlow.Application.UnitTests.csproj" />
     <Project Path="tests/OrderFlow.ArchitectureTests/OrderFlow.ArchitectureTests.csproj" />
     <Project Path="tests/OrderFlow.Domain.UnitTests/OrderFlow.Domain.UnitTests.csproj" />
+    <Project Path="tests/OrderFlow.Functions.OrderIntake.UnitTests/OrderFlow.Functions.OrderIntake.UnitTests.csproj" />
   </Folder>
 </Solution>
