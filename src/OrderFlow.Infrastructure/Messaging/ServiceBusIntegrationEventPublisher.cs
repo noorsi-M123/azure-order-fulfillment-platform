@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using OrderFlow.Application.Messaging;
 using OrderFlow.Application.Orders.Events;
@@ -8,6 +9,7 @@ public sealed class ServiceBusIntegrationEventPublisher
     : IIntegrationEventPublisher
 {
     private const string QueueName = "orders-submitted";
+    private const string TraceParentPropertyName = "traceparent";
 
     private readonly ServiceBusSender _sender;
 
@@ -43,8 +45,29 @@ public sealed class ServiceBusIntegrationEventPublisher
                 orderSubmitted.CorrelationId;
         }
 
+        AddTraceContext(message);
+
         await _sender.SendMessageAsync(
             message,
             cancellationToken);
+    }
+
+    private static void AddTraceContext(
+        ServiceBusMessage message)
+    {
+        var currentActivity = Activity.Current;
+
+        if (currentActivity is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(currentActivity.Id))
+        {
+            return;
+        }
+
+        message.ApplicationProperties[TraceParentPropertyName] =
+            currentActivity.Id;
     }
 }

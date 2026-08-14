@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,9 @@ namespace OrderFlow.Functions.OrderProcessor;
 
 public sealed class ProcessOrderSubmitted
 {
+    private const string QueueName = "orders-submitted";
+    private const string TraceParentPropertyName = "traceparent";
+
     private readonly ILogger<ProcessOrderSubmitted> _logger;
     private readonly ProcessOrderSubmittedHandler _handler;
 
@@ -24,7 +28,7 @@ public sealed class ProcessOrderSubmitted
     [Function(nameof(ProcessOrderSubmitted))]
     public async Task Run(
         [ServiceBusTrigger(
-            "orders-submitted",
+            QueueName,
             Connection = "ServiceBusConnection")]
         ServiceBusReceivedMessage message)
     {
@@ -42,9 +46,18 @@ public sealed class ProcessOrderSubmitted
             message.CorrelationId
             ?? integrationEvent.CorrelationId;
 
+        var parentContext =
+            GetRemoteParentContext(message);
+
         using var activity =
-            OrderFlowActivitySource.Instance.StartActivity(
-                "ProcessOrderSubmitted");
+            parentContext.HasValue
+                ? OrderFlowActivitySource.Instance.StartActivity(
+                    "ProcessOrderSubmitted",
+                    ActivityKind.Consumer,
+                    parentContext.Value)
+                : OrderFlowActivitySource.Instance.StartActivity(
+                    "ProcessOrderSubmitted",
+                    ActivityKind.Consumer);
 
         activity?.SetTag(
             "orderflow.correlation_id",
@@ -64,10 +77,10 @@ public sealed class ProcessOrderSubmitted
 
         activity?.SetTag(
             "messaging.destination.name",
-            "orders-submitted");
+            QueueName);
 
         using var loggingScope = _logger.BeginScope(
-            new Dictionary<string, object>
+            new Dictionary<string, object?>
             {
                 ["OrderId"] = integrationEvent.OrderId,
                 ["CustomerId"] = integrationEvent.CustomerId,
@@ -100,5 +113,32 @@ public sealed class ProcessOrderSubmitted
 
         _logger.LogInformation(
             "Order submitted event processed successfully.");
+    }
+
+    private static ActivityContext? GetRemoteParentContext(
+        ServiceBusReceivedMessage message)
+    {
+        if (!message.ApplicationProperties.TryGetValue(
+                TraceParentPropertyName,
+                out var traceParentValue))
+        {
+            return null;
+        }
+
+        var traceParent =
+            traceParentValue?.ToString();
+
+        if (string.IsNullOrWhiteSpace(traceParent))
+        {
+            return null;
+        }
+
+        return ActivityContext.TryParse(
+            traceParent,
+            traceState: null,
+            isRemote: true,
+            out var parentContext)
+                ? parentContext
+                : null;
     }
 }
