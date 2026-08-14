@@ -12,6 +12,7 @@ namespace OrderFlow.Functions.OrderIntake;
 public sealed class SubmitOrder
 {
     private const string CorrelationIdHeaderName = "X-Correlation-ID";
+    private const int MaxCorrelationIdLength = 100;
 
     private readonly ILogger<SubmitOrder> _logger;
     private readonly IValidator<SubmitOrderRequest> _validator;
@@ -149,14 +150,32 @@ public sealed class SubmitOrder
                 out var correlationIdHeader))
         {
             var correlationId =
-                correlationIdHeader.ToString();
+                correlationIdHeader.ToString().Trim();
 
-            if (!string.IsNullOrWhiteSpace(correlationId))
+            if (IsValidCorrelationId(correlationId))
             {
                 return correlationId;
             }
         }
 
         return request.HttpContext.TraceIdentifier;
+    }
+
+    private static bool IsValidCorrelationId(
+        string correlationId)
+    {
+        if (string.IsNullOrWhiteSpace(correlationId))
+        {
+            return false;
+        }
+
+        if (correlationId.Length > MaxCorrelationIdLength)
+        {
+            return false;
+        }
+
+        return correlationId.All(character =>
+            char.IsAsciiLetterOrDigit(character)
+            || character is '-' or '_' or '.');
     }
 }
