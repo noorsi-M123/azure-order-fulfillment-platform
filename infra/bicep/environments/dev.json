@@ -10,6 +10,18 @@
     },
     "storageAccountName": {
       "value": "storderflowdev"
+    },
+    "apiManagementServiceName": {
+      "value": "apim-orderflow-dev"
+    },
+    "apiManagementPublisherName": {
+      "value": "OrderFlow"
+    },
+    "apiManagementPublisherEmail": {
+      "value": "developer@example.com"
+    },
+    "orderIntakeBackendUrl": {
+      "value": "https://orderflow-dev.example.com/api/orders"
     }
   }
 }
