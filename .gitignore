@@ -73,3 +73,6 @@ Desktop.ini
 *.temp
 *.bak
 *.swp
+
+# Bicep generated ARM templates
+infra/bicep/*.json
