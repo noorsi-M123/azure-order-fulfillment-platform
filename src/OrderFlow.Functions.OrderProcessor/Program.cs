@@ -64,4 +64,6 @@ builder.Services.AddScoped<IOrderProcessingResultStore,TableOrderProcessingResul
 builder.Services.AddSingleton(tableServiceClient);
 builder.Services.AddScoped<IProcessedMessageStore, TableProcessedMessageStore>();
 builder.Services.AddScoped<ProcessOrderSubmittedHandler>();
+builder.Services.AddSingleton(TimeProvider.System);
+
 builder.Build().Run();

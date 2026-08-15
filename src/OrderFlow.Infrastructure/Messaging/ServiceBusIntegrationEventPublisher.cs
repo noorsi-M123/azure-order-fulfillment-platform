@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Azure.Messaging.ServiceBus;
+using Microsoft.Extensions.Options;
 using OrderFlow.Application.Messaging;
 using OrderFlow.Application.Orders.Events;
 
@@ -8,15 +9,28 @@ namespace OrderFlow.Infrastructure.Messaging;
 public sealed class ServiceBusIntegrationEventPublisher
     : IIntegrationEventPublisher
 {
-    private const string QueueName = "orders-submitted";
     private const string TraceParentPropertyName = "traceparent";
 
     private readonly ServiceBusSender _sender;
 
     public ServiceBusIntegrationEventPublisher(
-        ServiceBusClient serviceBusClient)
+        ServiceBusClient serviceBusClient,
+        IOptions<MessagingOptions> messagingOptions)
     {
-        _sender = serviceBusClient.CreateSender(QueueName);
+        ArgumentNullException.ThrowIfNull(serviceBusClient);
+        ArgumentNullException.ThrowIfNull(messagingOptions);
+
+        var queueName =
+            messagingOptions.Value.OrdersSubmittedQueueName;
+
+        if (string.IsNullOrWhiteSpace(queueName))
+        {
+            throw new InvalidOperationException(
+                "Messaging:OrdersSubmittedQueueName is not configured.");
+        }
+
+        _sender =
+            serviceBusClient.CreateSender(queueName);
     }
 
     public async Task PublishAsync<T>(
@@ -55,7 +69,8 @@ public sealed class ServiceBusIntegrationEventPublisher
     private static void AddTraceContext(
         ServiceBusMessage message)
     {
-        var currentActivity = Activity.Current;
+        var currentActivity =
+            Activity.Current;
 
         if (currentActivity is null)
         {

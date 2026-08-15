@@ -10,15 +10,18 @@ public sealed class ProcessOrderSubmittedHandler
     private readonly IProcessedMessageStore _processedMessageStore;
     private readonly IInventoryReservationService _inventoryReservationService;
     private readonly IOrderProcessingResultStore _processingResultStore;
+    private readonly TimeProvider _timeProvider;
 
     public ProcessOrderSubmittedHandler(
         IProcessedMessageStore processedMessageStore,
         IInventoryReservationService inventoryReservationService,
-        IOrderProcessingResultStore processingResultStore)
+        IOrderProcessingResultStore processingResultStore,
+        TimeProvider timeProvider)
     {
         _processedMessageStore = processedMessageStore;
         _inventoryReservationService = inventoryReservationService;
         _processingResultStore = processingResultStore;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ProcessOrderSubmittedResult> HandleAsync(
@@ -56,7 +59,7 @@ public sealed class ProcessOrderSubmittedHandler
                 ? OrderProcessingStatus.Completed
                 : OrderProcessingStatus.Failed,
             reservationResult.FailureReason,
-            DateTimeOffset.UtcNow);
+            _timeProvider.GetUtcNow());
 
         await _processingResultStore.SaveAsync(
             processingResult,
