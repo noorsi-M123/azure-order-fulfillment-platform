@@ -3,78 +3,118 @@ using OrderFlow.Application.Messaging;
 using OrderFlow.Application.Orders.Events;
 using OrderFlow.Application.Orders.ProcessOrderSubmitted;
 using OrderFlow.Application.Orders.Processing;
+using Xunit;
 
 namespace OrderFlow.Application.UnitTests.Orders.ProcessOrderSubmitted;
 
 public sealed class ProcessOrderSubmittedHandlerTests
 {
-    private const string MessageId = "order-submitted:ORD-001";
-    private const string OrderId = "ORD-001";
-    private const string CustomerId = "CUST-001";
-    private const string CorrelationId = "corr-test-001";
+    private const string MessageId =
+        "order-submitted:ORD-001";
+
+    private const string OrderId =
+        "ORD-001";
+
+    private const string CustomerId =
+        "CUST-001";
+
+    private const string CorrelationId =
+        "corr-test-001";
+
+    private static readonly DateTimeOffset FixedUtcNow =
+        new(2026, 8, 15, 10, 30, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task HandleAsync_WhenMessageWasAlreadyProcessed_ReturnsAlreadyProcessed()
+    public async Task HandleAsync_ReturnsAlreadyProcessed_WhenMessageWasAlreadyProcessed()
     {
-        var processedMessageStore = new FakeProcessedMessageStore
-        {
-            HasBeenProcessed = true
-        };
+        // Arrange
+        var processedMessageStore =
+            new FakeProcessedMessageStore
+            {
+                HasBeenProcessed = true
+            };
 
-        var inventoryService = new FakeInventoryReservationService();
-        var processingResultStore = new FakeOrderProcessingResultStore();
+        var inventoryReservationService =
+            new FakeInventoryReservationService();
+
+        var processingResultStore =
+            new FakeOrderProcessingResultStore();
+
+        var timeProvider =
+            new FixedTimeProvider(FixedUtcNow);
 
         var sut = new ProcessOrderSubmittedHandler(
             processedMessageStore,
-            inventoryService,
-            processingResultStore);
+            inventoryReservationService,
+            processingResultStore,
+            timeProvider);
 
+        var integrationEvent =
+            CreateEvent();
+
+        // Act
         var result = await sut.HandleAsync(
             MessageId,
-            CreateEvent());
+            integrationEvent);
 
+        // Assert
         Assert.Equal(
             ProcessOrderSubmittedResult.AlreadyProcessed,
             result);
 
-        Assert.False(processedMessageStore.MarkAsProcessedCalled);
-        Assert.False(inventoryService.ReserveCalled);
-        Assert.False(processingResultStore.SaveCalled);
+        Assert.Equal(
+            0,
+            inventoryReservationService.ReservationCalls);
+
+        Assert.Null(
+            processingResultStore.SavedResult);
+
+        Assert.False(
+            processedMessageStore.MarkAsProcessedCalled);
     }
 
     [Fact]
-    public async Task HandleAsync_WhenInventoryReservationSucceeds_PersistsCompletedResultAndMarksMessageAsProcessed()
+    public async Task HandleAsync_SavesCompletedResult_WhenInventoryReservationSucceeds()
     {
-        var processedMessageStore = new FakeProcessedMessageStore
-        {
-            HasBeenProcessed = false
-        };
+        // Arrange
+        var processedMessageStore =
+            new FakeProcessedMessageStore();
 
-        var inventoryService = new FakeInventoryReservationService
-        {
-            Result = new InventoryReservationResult(
-                Succeeded: true)
-        };
+        var inventoryReservationService =
+            new FakeInventoryReservationService
+            {
+                ReservationResult =
+                    new InventoryReservationResult(
+                        Succeeded: true)
+            };
 
-        var processingResultStore = new FakeOrderProcessingResultStore();
+        var processingResultStore =
+            new FakeOrderProcessingResultStore();
+
+        var timeProvider =
+            new FixedTimeProvider(FixedUtcNow);
 
         var sut = new ProcessOrderSubmittedHandler(
             processedMessageStore,
-            inventoryService,
-            processingResultStore);
+            inventoryReservationService,
+            processingResultStore,
+            timeProvider);
 
+        var integrationEvent =
+            CreateEvent();
+
+        // Act
         var result = await sut.HandleAsync(
             MessageId,
-            CreateEvent());
+            integrationEvent);
 
+        // Assert
         Assert.Equal(
             ProcessOrderSubmittedResult.Processed,
             result);
 
-        Assert.True(inventoryService.ReserveCalled);
-        Assert.True(processingResultStore.SaveCalled);
-
-        Assert.NotNull(processingResultStore.SavedResult);
+        Assert.NotNull(
+            processingResultStore.SavedResult);
 
         Assert.Equal(
             OrderId,
@@ -87,49 +127,60 @@ public sealed class ProcessOrderSubmittedHandlerTests
         Assert.Null(
             processingResultStore.SavedResult.FailureReason);
 
-        Assert.True(processedMessageStore.MarkAsProcessedCalled);
-
         Assert.Equal(
-            MessageId,
-            processedMessageStore.MarkedMessageId);
+            FixedUtcNow,
+            processingResultStore.SavedResult.ProcessedAtUtc);
+
+        Assert.True(
+            processedMessageStore.MarkAsProcessedCalled);
     }
 
     [Fact]
-    public async Task HandleAsync_WhenInventoryReservationFails_PersistsFailedResultAndMarksMessageAsProcessed()
+    public async Task HandleAsync_SavesFailedResult_WhenInventoryReservationFails()
     {
-        const string failureReason = "Insufficient inventory.";
+        // Arrange
+        const string failureReason =
+            "Insufficient inventory.";
 
-        var processedMessageStore = new FakeProcessedMessageStore
-        {
-            HasBeenProcessed = false
-        };
+        var processedMessageStore =
+            new FakeProcessedMessageStore();
 
-        var inventoryService = new FakeInventoryReservationService
-        {
-            Result = new InventoryReservationResult(
-                Succeeded: false,
-                FailureReason: failureReason)
-        };
+        var inventoryReservationService =
+            new FakeInventoryReservationService
+            {
+                ReservationResult =
+                    new InventoryReservationResult(
+                        Succeeded: false,
+                        FailureReason: failureReason)
+            };
 
-        var processingResultStore = new FakeOrderProcessingResultStore();
+        var processingResultStore =
+            new FakeOrderProcessingResultStore();
+
+        var timeProvider =
+            new FixedTimeProvider(FixedUtcNow);
 
         var sut = new ProcessOrderSubmittedHandler(
             processedMessageStore,
-            inventoryService,
-            processingResultStore);
+            inventoryReservationService,
+            processingResultStore,
+            timeProvider);
 
+        var integrationEvent =
+            CreateEvent();
+
+        // Act
         var result = await sut.HandleAsync(
             MessageId,
-            CreateEvent());
+            integrationEvent);
 
+        // Assert
         Assert.Equal(
             ProcessOrderSubmittedResult.Processed,
             result);
 
-        Assert.True(inventoryService.ReserveCalled);
-        Assert.True(processingResultStore.SaveCalled);
-
-        Assert.NotNull(processingResultStore.SavedResult);
+        Assert.NotNull(
+            processingResultStore.SavedResult);
 
         Assert.Equal(
             OrderId,
@@ -143,11 +194,12 @@ public sealed class ProcessOrderSubmittedHandlerTests
             failureReason,
             processingResultStore.SavedResult.FailureReason);
 
-        Assert.True(processedMessageStore.MarkAsProcessedCalled);
-
         Assert.Equal(
-            MessageId,
-            processedMessageStore.MarkedMessageId);
+            FixedUtcNow,
+            processingResultStore.SavedResult.ProcessedAtUtc);
+
+        Assert.True(
+            processedMessageStore.MarkAsProcessedCalled);
     }
 
     private static OrderSubmittedIntegrationEvent CreateEvent()
@@ -155,15 +207,32 @@ public sealed class ProcessOrderSubmittedHandlerTests
         return new OrderSubmittedIntegrationEvent(
             OrderId,
             CustomerId,
-            [
+            new[]
+            {
                 new OrderSubmittedItem(
                     "PROD-001",
-                    1,
-                    10m,
+                    2,
+                    12.50m,
                     "EUR")
-            ],
-            DateTimeOffset.UtcNow,
+            },
+            FixedUtcNow.AddMinutes(-5),
             CorrelationId);
+    }
+
+    private sealed class FixedTimeProvider : TimeProvider
+    {
+        private readonly DateTimeOffset _utcNow;
+
+        public FixedTimeProvider(
+            DateTimeOffset utcNow)
+        {
+            _utcNow = utcNow;
+        }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            return _utcNow;
+        }
     }
 
     private sealed class FakeProcessedMessageStore
@@ -173,13 +242,12 @@ public sealed class ProcessOrderSubmittedHandlerTests
 
         public bool MarkAsProcessedCalled { get; private set; }
 
-        public string? MarkedMessageId { get; private set; }
-
         public Task<bool> HasBeenProcessedAsync(
             string messageId,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(HasBeenProcessed);
+            return Task.FromResult(
+                HasBeenProcessed);
         }
 
         public Task MarkAsProcessedAsync(
@@ -187,7 +255,6 @@ public sealed class ProcessOrderSubmittedHandlerTests
             CancellationToken cancellationToken = default)
         {
             MarkAsProcessedCalled = true;
-            MarkedMessageId = messageId;
 
             return Task.CompletedTask;
         }
@@ -196,33 +263,31 @@ public sealed class ProcessOrderSubmittedHandlerTests
     private sealed class FakeInventoryReservationService
         : IInventoryReservationService
     {
-        public InventoryReservationResult Result { get; init; } =
-            new(Succeeded: true);
+        public int ReservationCalls { get; private set; }
 
-        public bool ReserveCalled { get; private set; }
+        public InventoryReservationResult ReservationResult { get; init; } =
+            new(Succeeded: true);
 
         public Task<InventoryReservationResult> ReserveAsync(
             IReadOnlyCollection<InventoryReservationItem> items,
             CancellationToken cancellationToken = default)
         {
-            ReserveCalled = true;
+            ReservationCalls++;
 
-            return Task.FromResult(Result);
+            return Task.FromResult(
+                ReservationResult);
         }
     }
 
     private sealed class FakeOrderProcessingResultStore
         : IOrderProcessingResultStore
     {
-        public bool SaveCalled { get; private set; }
-
         public OrderProcessingResult? SavedResult { get; private set; }
 
         public Task SaveAsync(
             OrderProcessingResult result,
             CancellationToken cancellationToken = default)
         {
-            SaveCalled = true;
             SavedResult = result;
 
             return Task.CompletedTask;

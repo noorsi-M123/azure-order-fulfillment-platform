@@ -11,8 +11,14 @@ namespace OrderFlow.Functions.OrderProcessor;
 
 public sealed class ProcessOrderSubmitted
 {
-    private const string QueueName = "orders-submitted";
-    private const string TraceParentPropertyName = "traceparent";
+    private const string QueueNameSetting =
+        "%Messaging:OrdersSubmittedQueueName%";
+
+    private const string OrdersSubmittedDestinationName =
+        "orders-submitted";
+
+    private const string TraceParentPropertyName =
+        "traceparent";
 
     private readonly ILogger<ProcessOrderSubmitted> _logger;
     private readonly ProcessOrderSubmittedHandler _handler;
@@ -28,7 +34,7 @@ public sealed class ProcessOrderSubmitted
     [Function(nameof(ProcessOrderSubmitted))]
     public async Task Run(
         [ServiceBusTrigger(
-            QueueName,
+            QueueNameSetting,
             Connection = "ServiceBusConnection")]
         ServiceBusReceivedMessage message)
     {
@@ -77,25 +83,35 @@ public sealed class ProcessOrderSubmitted
 
         activity?.SetTag(
             "messaging.destination.name",
-            QueueName);
+            OrdersSubmittedDestinationName);
 
-        using var loggingScope = _logger.BeginScope(
-            new Dictionary<string, object?>
-            {
-                ["OrderId"] = integrationEvent.OrderId,
-                ["CustomerId"] = integrationEvent.CustomerId,
-                ["MessageId"] = message.MessageId,
-                ["CorrelationId"] = correlationId
-            });
+        using var loggingScope =
+            _logger.BeginScope(
+                new Dictionary<string, object?>
+                {
+                    ["OrderId"] =
+                        integrationEvent.OrderId,
+
+                    ["CustomerId"] =
+                        integrationEvent.CustomerId,
+
+                    ["MessageId"] =
+                        message.MessageId,
+
+                    ["CorrelationId"] =
+                        correlationId
+                });
 
         _logger.LogInformation(
             "Processing order submitted event.");
 
-        var result = await _handler.HandleAsync(
-            message.MessageId,
-            integrationEvent);
+        var result =
+            await _handler.HandleAsync(
+                message.MessageId,
+                integrationEvent);
 
-        if (result == ProcessOrderSubmittedResult.AlreadyProcessed)
+        if (result ==
+            ProcessOrderSubmittedResult.AlreadyProcessed)
         {
             activity?.SetTag(
                 "orderflow.processing.result",
